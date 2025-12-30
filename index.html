@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Product Management CRUD App</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(120deg, #1f4037, #99f2c8);
+            color: #222;
+        }
+
+        header {
+            text-align: center;
+            padding: 25px;
+            background: #0f2027;
+            color: white;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 800px;
+            margin: 30px auto;
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+
+        h2 {
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 8px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px,1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        input {
+            padding: 12px;
+            font-size: 14px;
+        }
+
+        .buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+        }
+
+        .add { background: #27ae60; }
+        .update { background: #2980b9; }
+        .delete { background: #c0392b; }
+        .get { background: #8e44ad; }
+
+        table {
+            width: 100%;
+            margin-top: 25px;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+            text-align: center;
+        }
+
+        th {
+            background: #0f2027;
+            color: white;
+        }
+
+        tr:hover {
+            background: #ecf0f1;
+            cursor: pointer;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            width: 300px;
+            text-align: center;
+        }
+
+        .modal-actions {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .cancel-btn {
+            background: #7f8c8d;
+            padding: 8px 16px;
+            border-radius: 16px;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+
+        .confirm-btn {
+            background: #c0392b;
+            padding: 8px 16px;
+            border-radius: 16px;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Product Management CRUD App</h1>
+</header>
+
+<div class="container">
+
+    <h2>Product Details</h2>
+
+    <div class="grid">
+        <input type="number" id="productId" placeholder="Product ID">
+        <input type="text" id="productName" placeholder="Product Name">
+        <input type="number" id="price" placeholder="Price">
+    </div>
+
+    <div class="buttons">
+        <button class="add" onclick="addProduct()">Add</button>
+        <button class="update" onclick="updateProduct()">Update</button>
+        <button class="delete" onclick="openDeleteModal()">Delete</button>
+        <button class="get" onclick="getProducts()">Get All</button>
+    </div>
+
+    <h2>Product List</h2>
+
+    <table>
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Price</th>
+        </tr>
+        </thead>
+        <tbody id="productTable"></tbody>
+    </table>
+
+</div>
+
+<div id="deleteModal" class="modal-overlay">
+    <div class="modal">
+        <h3>Delete Product</h3>
+        <p>This action cannot be undone</p>
+        <div class="modal-actions">
+            <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+            <button class="confirm-btn" onclick="confirmDelete()">Delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const baseUrl = "http://localhost:8080/products";
+    let productIdSet = new Set();
+    let deleteTargetId = null;
+
+    function getData() {
+        return {
+            productId: Number(document.getElementById("productId").value),
+            productName: document.getElementById("productName").value,
+            price: Number(document.getElementById("price").value)
+        };
+    }
+
+    function addProduct() {
+        const data = getData();
+
+        if (!data.productId || !data.productName || data.price <= 0) return;
+
+        if (productIdSet.has(data.productId)) {
+            alert("Product ID already exists");
+            return;
+        }
+
+        fetch(baseUrl, {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify(data)
+        }).then(getProducts);
+    }
+
+    function updateProduct() {
+        const id = document.getElementById("productId").value;
+        if (!id) return;
+
+        fetch(`${baseUrl}/${id}`, {
+            method: "PUT",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify(getData())
+        }).then(getProducts);
+    }
+
+    function openDeleteModal() {
+        const id = document.getElementById("productId").value;
+        if (!id) return;
+        deleteTargetId = id;
+        document.getElementById("deleteModal").style.display = "flex";
+    }
+
+    function closeModal() {
+        document.getElementById("deleteModal").style.display = "none";
+        deleteTargetId = null;
+    }
+
+    function confirmDelete() {
+        fetch(`${baseUrl}/${deleteTargetId}`, { method: "DELETE" })
+            .then(() => {
+                closeModal();
+                getProducts();
+            });
+    }
+
+    function getProducts() {
+        fetch(baseUrl)
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById("productTable");
+                tbody.innerHTML = "";
+                productIdSet.clear();
+
+                data.forEach(p => {
+                    productIdSet.add(p.productId);
+                    tbody.innerHTML += `
+                        <tr onclick="selectRow(${p.productId},'${p.productName}',${p.price})">
+                            <td>${p.productId}</td>
+                            <td>${p.productName}</td>
+                            <td>${p.price}</td>
+                        </tr>`;
+                });
+            });
+    }
+
+    function selectRow(id, name, price) {
+        document.getElementById("productId").value = id;
+        document.getElementById("productName").value = name;
+        document.getElementById("price").value = price;
+    }
+</script>
+
+</body>
+</html>
